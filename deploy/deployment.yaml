@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: medicalassistant
+  labels:
+    app: medicalassistant
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: medicalassistant
+  template:
+    metadata:
+      labels:
+        app: medicalassistant
+    spec:
+      # L'image est privée sur GHCR : secret créé à la main, hors Git.
+      imagePullSecrets:
+        - name: ghcr-pull
+      containers:
+        - name: medicalassistant
+          # Le tag est remplacé par kustomization.yaml.
+          image: ghcr.io/ingrid-flogny/medicalassistant
+          ports:
+            - containerPort: 8080
+          env:
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: medicalassistant-secrets
+                  key: ANTHROPIC_API_KEY
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          # Whisper « small » charge environ 1 Go en mémoire à la première transcription.
+          resources:
+            requests:
+              cpu: 250m
+              memory: 1Gi
+            limits:
+              cpu: "2"
+              memory: 2Gi

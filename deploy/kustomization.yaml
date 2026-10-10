@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - deployment.yaml
+  - service.yaml
+  - route.yaml
+
+# Version déployée : changer ce tag (SHA du commit construit par la CI) déclenche
+# un nouveau déploiement par Argo CD.
+images:
+  - name: ghcr.io/ingrid-flogny/medicalassistant
+    newTag: sha-31d202cba682c53bdd4caf142f78e69740a2c4dc

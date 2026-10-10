@@ -1,0 +1,19 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: medicalassistant
+  labels:
+    app: medicalassistant
+  annotations:
+    # La transcription d'une longue consultation dépasse les 30 s par défaut du routeur.
+    haproxy.router.openshift.io/timeout: 5m
+spec:
+  to:
+    kind: Service
+    name: medicalassistant
+  port:
+    targetPort: http
+  # HTTPS obligatoire : le navigateur n'autorise le microphone que sur une page sécurisée.
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
