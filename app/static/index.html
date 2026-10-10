@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MedicalAssistant</title>
+  <style>
+    :root { --ink: #1c2733; --muted: #5d6b7a; --line: #d5dce4; --bg: #f4f6f8; --accent: #0b6e6e; --danger: #b3261e; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font: 16px/1.5 system-ui, "Segoe UI", sans-serif; color: var(--ink); background: var(--bg); }
+    main { max-width: 860px; margin: 0 auto; padding: 24px 16px 48px; }
+    h1 { font-size: 1.5rem; margin: 0 0 4px; }
+    .lead { color: var(--muted); margin: 0 0 24px; }
+    section { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 20px; margin-bottom: 16px; }
+    h2 { font-size: 1.05rem; margin: 0 0 12px; }
+    .row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+    button { font: inherit; padding: 9px 16px; border-radius: 8px; border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer; }
+    button.secondary { background: #fff; color: var(--accent); }
+    button.recording { background: var(--danger); border-color: var(--danger); }
+    button:disabled { opacity: .45; cursor: not-allowed; }
+    textarea { width: 100%; min-height: 180px; padding: 12px; font: inherit; border: 1px solid var(--line); border-radius: 8px; resize: vertical; }
+    #observations { min-height: 320px; }
+    label.consent { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 14px; }
+    #timer { font-variant-numeric: tabular-nums; color: var(--muted); }
+    .status { color: var(--muted); min-height: 1.5em; margin: 10px 0 0; }
+    .status.error { color: var(--danger); }
+    .note { color: var(--muted); font-size: .875rem; margin: 10px 0 0; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>MedicalAssistant</h1>
+  <p class="lead">Enregistrez la consultation, relisez la transcription, puis générez l'observation.</p>
+
+  <section>
+    <h2>1. Enregistrement</h2>
+    <label class="consent">
+      <input type="checkbox" id="consent">
+      <span>Le patient a été informé de l'enregistrement et y a consenti.</span>
+    </label>
+    <div class="row">
+      <button id="record" disabled>Démarrer l'enregistrement</button>
+      <span id="timer">00:00</span>
+    </div>
+    <p class="status" id="recordStatus" role="status"></p>
+  </section>
+
+  <section>
+    <h2>2. Transcription</h2>
+    <textarea id="transcript" placeholder="La transcription apparaîtra ici. Vous pouvez la corriger, ou coller un texte directement."></textarea>
+    <div class="row" style="margin-top:12px">
+      <button id="generate" disabled>Générer l'observation</button>
+    </div>
+    <p class="status" id="generateStatus" role="status"></p>
+  </section>
+
+  <section>
+    <h2>3. Observation</h2>
+    <textarea id="observations" placeholder="L'observation générée apparaîtra ici."></textarea>
+    <div class="row" style="margin-top:12px">
+      <button id="copy" class="secondary" disabled>Copier</button>
+    </div>
+    <p class="note">Texte généré par une IA à partir de la transcription : à relire et valider par le médecin avant toute intégration au dossier.</p>
+  </section>
+</main>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const consent = $("consent"), record = $("record"), timer = $("timer");
+  const transcript = $("transcript"), generate = $("generate");
+  const observations = $("observations"), copy = $("copy");
+
+  let recorder = null, chunks = [], startedAt = 0, tick = null;
+
+  function setStatus(el, text, isError = false) {
+    el.textContent = text;
+    el.classList.toggle("error", isError);
+  }
+
+  async function postJson(url, options) {
+    const response = await fetch(url, options);
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.detail || `Erreur ${response.status}`);
+    return body;
+  }
+
+  consent.addEventListener("change", () => { record.disabled = !consent.checked && !recorder; });
+  transcript.addEventListener("input", () => { generate.disabled = !transcript.value.trim(); });
+  observations.addEventListener("input", () => { copy.disabled = !observations.value.trim(); });
+
+  record.addEventListener("click", async () => {
+    if (recorder) { recorder.stop(); return; }
+
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      setStatus($("recordStatus"), "Accès au microphone refusé ou indisponible.", true);
+      return;
+    }
+
+    chunks = [];
+    recorder = new MediaRecorder(stream);
+    recorder.ondataavailable = (e) => chunks.push(e.data);
+    recorder.onstop = async () => {
+      stream.getTracks().forEach((t) => t.stop());
+      clearInterval(tick);
+      const blob = new Blob(chunks, { type: recorder.mimeType });
+      recorder = null;
+      record.textContent = "Démarrer l'enregistrement";
+      record.classList.remove("recording");
+      record.disabled = true;
+      setStatus($("recordStatus"), "Transcription en cours…");
+
+      const form = new FormData();
+      form.append("audio", blob, "consultation.webm");
+      try {
+        const { text } = await postJson("/api/transcriptions", { method: "POST", body: form });
+        transcript.value = text;
+        generate.disabled = false;
+        setStatus($("recordStatus"), "Transcription terminée.");
+      } catch (e) {
+        setStatus($("recordStatus"), e.message, true);
+      } finally {
+        record.disabled = !consent.checked;
+      }
+    };
+
+    recorder.start();
+    startedAt = Date.now();
+    tick = setInterval(() => {
+      const s = Math.floor((Date.now() - startedAt) / 1000);
+      timer.textContent = `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+    }, 500);
+    record.textContent = "Arrêter l'enregistrement";
+    record.classList.add("recording");
+    setStatus($("recordStatus"), "Enregistrement en cours…");
+  });
+
+  generate.addEventListener("click", async () => {
+    generate.disabled = true;
+    setStatus($("generateStatus"), "Rédaction de l'observation…");
+    try {
+      const { text } = await postJson("/api/observations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: transcript.value }),
+      });
+      observations.value = text;
+      copy.disabled = false;
+      setStatus($("generateStatus"), "Observation générée.");
+    } catch (e) {
+      setStatus($("generateStatus"), e.message, true);
+    } finally {
+      generate.disabled = !transcript.value.trim();
+    }
+  });
+
+  copy.addEventListener("click", async () => {
+    await navigator.clipboard.writeText(observations.value);
+    copy.textContent = "Copié";
+    setTimeout(() => { copy.textContent = "Copier"; }, 1500);
+  });
+</script>
+</body>
+</html>

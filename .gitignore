@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.pyc
+.idea/
+
+# Secrets : ne jamais versionner la clé API
+.env
+
+# Certificat propre à ce poste (inspection HTTPS de l'antivirus)
+.certs/
+
+# Données de santé : aucun enregistrement ni transcription dans le dépôt
+*.webm
+*.wav
+*.mp3
+*.m4a

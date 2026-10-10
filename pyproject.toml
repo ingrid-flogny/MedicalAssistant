@@ -1,0 +1,13 @@
+[project]
+name = "medicalassistant"
+version = "0.1.0"
+description = "Interface médecin : enregistrement de consultation et rédaction assistée des observations"
+requires-python = ">=3.12"
+dependencies = [
+    "anthropic>=1.13.0",
+    "av<19",
+    "fastapi>=0.143.0",
+    "faster-whisper>=1.2.1",
+    "python-multipart>=0.0.32",
+    "uvicorn[standard]>=0.54.0",
+]
