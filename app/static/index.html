@@ -25,11 +25,34 @@
     .status { color: var(--muted); min-height: 1.5em; margin: 10px 0 0; }
     .status.error { color: var(--danger); }
     .note { color: var(--muted); font-size: .875rem; margin: 10px 0 0; }
+    [hidden] { display: none !important; }
+    .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin: 12px 0 20px; }
+    .tabs button { background: none; color: var(--muted); border: 0; border-bottom: 3px solid transparent; border-radius: 0; padding: 10px 14px; }
+    .tabs button[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+    .dropzone { display: block; border: 2px dashed var(--line); border-radius: 10px; padding: 28px 16px; text-align: center; color: var(--muted); cursor: pointer; }
+    .dropzone.over { border-color: var(--accent); background: #eef6f6; }
+    .dropzone input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+    #preview { display: block; max-width: 100%; max-height: 320px; margin: 14px auto 0; border-radius: 8px; }
+    .score { font-size: 2.5rem; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+    .score-label { color: var(--muted); margin: 0 0 14px; }
+    table { width: 100%; border-collapse: collapse; }
+    td { padding: 6px 0; border-top: 1px solid var(--line); vertical-align: middle; }
+    td.pct { width: 4.5em; text-align: right; font-variant-numeric: tabular-nums; }
+    td.bar { width: 35%; padding-left: 12px; }
+    .bar span { display: block; height: 8px; border-radius: 4px; background: var(--muted); min-width: 2px; }
+    .bar span.malignant { background: var(--danger); }
+    .tag { font-size: .75rem; color: var(--danger); border: 1px solid var(--danger); border-radius: 4px; padding: 0 5px; margin-left: 6px; white-space: nowrap; }
   </style>
 </head>
 <body>
 <main>
   <h1>MedicalAssistant</h1>
+  <div class="tabs" role="tablist">
+    <button role="tab" id="tab-consultation" aria-controls="panel-consultation" aria-selected="true">Consultation</button>
+    <button role="tab" id="tab-skin" aria-controls="panel-skin" aria-selected="false">SkinDetector</button>
+  </div>
+
+  <div id="panel-consultation" role="tabpanel" aria-labelledby="tab-consultation">
   <p class="lead">Enregistrez la consultation, relisez la transcription, puis générez l'observation.</p>
 
   <section>
@@ -62,6 +85,34 @@
     </div>
     <p class="note">Texte généré par une IA à partir de la transcription : à relire et valider par le médecin avant toute intégration au dossier.</p>
   </section>
+  </div>
+
+  <div id="panel-skin" role="tabpanel" aria-labelledby="tab-skin" hidden>
+  <p class="lead">Déposez la photo d'une lésion cutanée pour obtenir une estimation de la probabilité de malignité.</p>
+
+  <section>
+    <h2>1. Photo</h2>
+    <label class="dropzone" id="dropzone">
+      <input type="file" id="photo" accept="image/*">
+      <span id="dropLabel">Déposez une photo ici, ou cliquez pour en choisir une.</span>
+      <img id="preview" alt="Aperçu de la photo déposée" hidden>
+    </label>
+    <div class="row" style="margin-top:12px">
+      <button id="analyze" disabled>Analyser</button>
+    </div>
+    <p class="status" id="analyzeStatus" role="status"></p>
+    <p class="note">Le modèle a été entraîné sur des images de dermatoscope : sur une photo de smartphone, le résultat est peu fiable.</p>
+  </section>
+
+  <section id="skinResult" hidden>
+    <h2>2. Résultat</h2>
+    <div class="score" id="score"></div>
+    <p class="score-label">Probabilité estimée de malignité (somme des classes marquées « malin »)</p>
+    <table><tbody id="classes"></tbody></table>
+    <p class="note" id="skinModel"></p>
+    <p class="note">Estimation produite par un modèle expérimental, non validé cliniquement et qui n'est pas un dispositif médical. Elle ne constitue pas un diagnostic : un score bas n'exclut pas une lésion maligne.</p>
+  </section>
+  </div>
 </main>
 
 <script>
@@ -160,6 +211,90 @@
     await navigator.clipboard.writeText(observations.value);
     copy.textContent = "Copié";
     setTimeout(() => { copy.textContent = "Copier"; }, 1500);
+  });
+
+  // Onglets : l'onglet courant est conservé dans l'URL (#skin).
+  const tabs = { consultation: $("tab-consultation"), skin: $("tab-skin") };
+  function showTab(name) {
+    for (const [key, tab] of Object.entries(tabs)) {
+      tab.setAttribute("aria-selected", String(key === name));
+      $(`panel-${key}`).hidden = key !== name;
+    }
+  }
+  for (const [key, tab] of Object.entries(tabs)) {
+    tab.addEventListener("click", () => { location.hash = key; });
+  }
+  const tabFromHash = () => showTab(location.hash.slice(1) in tabs ? location.hash.slice(1) : "consultation");
+  window.addEventListener("hashchange", tabFromHash);
+  tabFromHash();
+
+  // SkinDetector
+  const dropzone = $("dropzone"), photo = $("photo"), preview = $("preview"), analyze = $("analyze");
+  const percent = (p) => `${(p * 100).toFixed(1).replace(".", ",")} %`;
+  let photoFile = null;
+
+  function setPhoto(file) {
+    if (!file || !file.type.startsWith("image/")) {
+      setStatus($("analyzeStatus"), "Ce fichier n'est pas une image.", true);
+      return;
+    }
+    photoFile = file;
+    if (preview.src) URL.revokeObjectURL(preview.src);
+    preview.src = URL.createObjectURL(file);
+    preview.hidden = false;
+    $("dropLabel").textContent = file.name;
+    $("skinResult").hidden = true;
+    analyze.disabled = false;
+    setStatus($("analyzeStatus"), "");
+  }
+
+  photo.addEventListener("change", () => setPhoto(photo.files[0]));
+  dropzone.addEventListener("dragover", (e) => { e.preventDefault(); dropzone.classList.add("over"); });
+  dropzone.addEventListener("dragleave", () => dropzone.classList.remove("over"));
+  dropzone.addEventListener("drop", (e) => {
+    e.preventDefault();
+    dropzone.classList.remove("over");
+    setPhoto(e.dataTransfer.files[0]);
+  });
+
+  analyze.addEventListener("click", async () => {
+    analyze.disabled = true;
+    setStatus($("analyzeStatus"), "Analyse en cours…");
+    const form = new FormData();
+    form.append("image", photoFile);
+    try {
+      const result = await postJson("/api/skin/analyses", { method: "POST", body: form });
+      $("score").textContent = percent(result.malignant_probability);
+      const rows = result.classes.map((c) => {
+        const row = document.createElement("tr");
+        const name = row.insertCell();
+        name.textContent = c.label;
+        if (c.malignant) {
+          const tag = document.createElement("span");
+          tag.className = "tag";
+          tag.textContent = "malin";
+          name.append(tag);
+        }
+        const pct = row.insertCell();
+        pct.className = "pct";
+        pct.textContent = percent(c.probability);
+        const bar = row.insertCell();
+        bar.className = "bar";
+        const fill = document.createElement("span");
+        fill.style.width = `${c.probability * 100}%`;
+        if (c.malignant) fill.className = "malignant";
+        bar.append(fill);
+        return row;
+      });
+      $("classes").replaceChildren(...rows);
+      $("skinModel").textContent = `Modèle : ${result.model}`;
+      $("skinResult").hidden = false;
+      setStatus($("analyzeStatus"), "Analyse terminée.");
+    } catch (e) {
+      setStatus($("analyzeStatus"), e.message, true);
+    } finally {
+      analyze.disabled = false;
+    }
   });
 </script>
 </body>

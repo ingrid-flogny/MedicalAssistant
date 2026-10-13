@@ -8,6 +8,20 @@ dependencies = [
     "av<19",
     "fastapi>=0.143.0",
     "faster-whisper>=1.2.1",
+    "pillow>=12.3.0",
     "python-multipart>=0.0.32",
+    "timm>=1.0.30",
+    "torch>=2.14.1",
+    "torchvision>=0.29.1",
     "uvicorn[standard]>=0.54.0",
 ]
+
+# PyTorch en version CPU : l'image reste légère et le cluster n'a pas de GPU.
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+torchvision = { index = "pytorch-cpu" }

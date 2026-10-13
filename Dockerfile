@@ -19,15 +19,18 @@ RUN --mount=type=secret,id=extra_ca,required=false \
     fi; \
     uv sync --frozen --no-dev --no-install-project && rm -f /tmp/ca.pem
 
-# Le modèle Whisper est embarqué dans l'image : aucun téléchargement au démarrage du pod.
+# Les modèles (Whisper, lésions cutanées) sont embarqués dans l'image : aucun
+# téléchargement au démarrage du pod. Seuls les deux modules qui les chargent sont
+# copiés ici, pour ne pas retélécharger les modèles à chaque modification du code.
 ARG WHISPER_MODEL=small
 ENV WHISPER_MODEL=${WHISPER_MODEL}
+COPY app/__init__.py app/transcription.py app/skin.py ./app/
 RUN --mount=type=secret,id=extra_ca,required=false \
     if [ -f /run/secrets/extra_ca ]; then \
         cat /etc/ssl/certs/ca-certificates.crt /run/secrets/extra_ca > /tmp/ca.pem; \
         export SSL_CERT_FILE=/tmp/ca.pem REQUESTS_CA_BUNDLE=/tmp/ca.pem; \
     fi; \
-    python -c "from faster_whisper import WhisperModel; WhisperModel('${WHISPER_MODEL}', device='cpu', compute_type='int8')" \
+    python -c "from app.transcription import _model; from app.skin import get_classifier; _model(); get_classifier()" \
     && rm -f /tmp/ca.pem
 ENV HF_HUB_OFFLINE=1
 

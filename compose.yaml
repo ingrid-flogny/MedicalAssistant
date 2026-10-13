@@ -1,0 +1,8 @@
+# Lancement local : docker compose up --build
+services:
+  app:
+    build: .
+    image: medicalassistant:dev
+    env_file: .env
+    ports:
+      - "8080:8080"

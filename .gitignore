@@ -8,6 +8,10 @@ __pycache__/
 
 # Certificat propre à ce poste (inspection HTTPS de l'antivirus)
 .certs/
+compose.override.yaml
+
+# Entraînement : images, embeddings et poids restent hors du dépôt
+training/data/
 
 # Données de santé : aucun enregistrement ni transcription dans le dépôt
 *.webm
