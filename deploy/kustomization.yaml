@@ -10,4 +10,4 @@ resources:
 # un nouveau déploiement par Argo CD.
 images:
   - name: ghcr.io/ingrid-flogny/medicalassistant
-    newTag: sha-31d202cba682c53bdd4caf142f78e69740a2c4dc
+    newTag: sha-542d42faa3a613851c6118f3e805213a38d543f4

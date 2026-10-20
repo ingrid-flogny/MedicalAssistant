@@ -56,12 +56,12 @@ pour l'identifiant arbitraire d'OpenShift.
 ```yaml
 images:
   - name: ghcr.io/ingrid-flogny/medicalassistant
-    newTag: sha-31d202cba682c53bdd4caf142f78e69740a2c4dc
+    newTag: sha-542d42faa3a613851c6118f3e805213a38d543f4
 ```
 
-Ce tag désigne encore l'image du **premier commit**. Avant le premier déploiement, le
-remplacer par le tag du dernier build réussi (onglet **Actions** du dépôt, ou page du
-paquet).
+Ce tag désigne l'image construite pour le commit `542d42f` (application sans
+SkinDetector, avec sa documentation). Vérifier dans l'onglet **Actions** du dépôt que ce
+build a réussi avant de déployer.
 
 ## 3. Préparer le cluster
 
