@@ -3,11 +3,9 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from PIL import Image, ImageOps
 from pydantic import BaseModel, Field
 
 from app.observations import ObservationError, generate_observations
-from app.skin import SkinAnalysis, get_classifier
 from app.transcription import transcribe
 
 STATIC_DIR = Path(__file__).parent / "static"
@@ -47,17 +45,6 @@ async def create_observations(transcript: Transcript) -> Observations:
         return Observations(text=await generate_observations(transcript.text))
     except ObservationError as e:
         raise HTTPException(502, str(e)) from e
-
-
-@app.post("/api/skin/analyses")
-def create_skin_analysis(image: UploadFile) -> SkinAnalysis:
-    try:
-        photo = ImageOps.exif_transpose(Image.open(image.file))
-        photo.load()
-    except Exception as e:
-        # Comme pour l'audio : la photo est une donnée de santé, rien n'est journalisé.
-        raise HTTPException(422, "Image illisible ou format non pris en charge.") from e
-    return get_classifier().analyze(photo)
 
 
 @app.get("/")

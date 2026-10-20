@@ -10,9 +10,6 @@ __pycache__/
 .certs/
 compose.override.yaml
 
-# Entraînement : images, embeddings et poids restent hors du dépôt
-training/data/
-
 # Données de santé : aucun enregistrement ni transcription dans le dépôt
 *.webm
 *.wav
