@@ -33,7 +33,7 @@
 
 | Élément | Valeur | Raison |
 |---|---|---|
-| `imagePullSecrets` | `ghcr-pull` | l'image est privée |
+| `imagePullSecrets` | `ghcr-pull` | nécessaire si le paquet GHCR est privé ; sans effet s'il est public |
 | `ANTHROPIC_API_KEY` | lu dans le secret `medicalassistant-secrets`, clé `ANTHROPIC_API_KEY` | aucun secret dans Git |
 | `readinessProbe` | `GET /healthz`, après 5 s | le trafic n'arrive qu'une fois le serveur prêt |
 | `livenessProbe` | `GET /healthz`, après 15 s, toutes les 20 s | redémarrage automatique si le serveur ne répond plus |
@@ -83,15 +83,16 @@ build a réussi avant de déployer.
 oc create secret generic medicalassistant-secrets \
   --from-literal=ANTHROPIC_API_KEY=<clé>
 
-# Accès à l'image privée : jeton GitHub (classic) avec le droit read:packages
+# Seulement si le paquet GHCR est privé : jeton GitHub (classic) avec le droit read:packages
 oc create secret docker-registry ghcr-pull \
   --docker-server=ghcr.io \
   --docker-username=ingrid-flogny \
   --docker-password=<jeton GitHub>
 ```
 
-Alternative au second secret : rendre le paquet GHCR public (page du paquet →
-**Package settings → Change visibility**).
+Le dépôt est public, mais le paquet GHCR garde sa propre visibilité (privé par défaut).
+Si on le rend public (page du paquet → **Package settings → Change visibility**), le
+second secret est inutile : le pod démarre même si `ghcr-pull` n'existe pas.
 
 ### c. Quotas
 
@@ -131,7 +132,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: git@github.com:ingrid-flogny/MedicalAssistant.git
+    repoURL: https://github.com/ingrid-flogny/MedicalAssistant.git
     targetRevision: main
     path: deploy
   destination:
@@ -143,8 +144,8 @@ spec:
       selfHeal: true   # annule les modifications faites à la main dans le cluster
 ```
 
-Le dépôt étant privé, Argo CD a besoin d'un accès en lecture (clé SSH de déploiement ou
-jeton GitHub), déclaré dans ses paramètres de dépôts. Les secrets de l'application
+Le dépôt étant public, Argo CD le lit en HTTPS sans identifiants : rien à déclarer dans
+ses paramètres de dépôts. Les secrets de l'application
 (`medicalassistant-secrets`, `ghcr-pull`) restent créés à la main : Argo CD ne les gère
 pas, puisqu'ils ne sont pas dans Git.
 

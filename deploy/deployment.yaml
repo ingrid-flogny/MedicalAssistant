@@ -14,7 +14,7 @@ spec:
       labels:
         app: medicalassistant
     spec:
-      # L'image est privée sur GHCR : secret créé à la main, hors Git.
+      # Utile si le paquet GHCR est privé : secret créé à la main, hors Git.
       imagePullSecrets:
         - name: ghcr-pull
       containers:

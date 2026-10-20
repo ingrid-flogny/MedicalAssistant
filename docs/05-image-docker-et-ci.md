@@ -68,11 +68,16 @@ Points notables :
 
 ## 3. Le registre (GitHub Container Registry)
 
-- Image : `ghcr.io/ingrid-flogny/medicalassistant`, **privée** comme le dépôt.
+- Image : `ghcr.io/ingrid-flogny/medicalassistant`.
 - Consultation : page du dépôt → **Packages**.
-- Pour que le cluster puisse la télécharger : secret `ghcr-pull` (voir
-  [Déploiement](06-deploiement-openshift-argocd.md#3-préparer-le-cluster)), ou rendre
-  le paquet public.
+- **Visibilité** : elle se règle indépendamment de celle du dépôt. Le dépôt est public,
+  mais un paquet GHCR est **privé** par défaut (page du paquet → **Package settings →
+  Change visibility**).
+- Pour que le cluster puisse la télécharger :
+  - paquet privé : secret `ghcr-pull` (voir
+    [Déploiement](06-deploiement-openshift-argocd.md#3-préparer-le-cluster)) ;
+  - paquet public : aucun secret nécessaire. L'image ne contient ni secret ni donnée
+    (le `.dockerignore` exclut `.env` et `.certs/`), elle peut donc être publiée.
 
 ## 4. Tester une image de la CI en local
 

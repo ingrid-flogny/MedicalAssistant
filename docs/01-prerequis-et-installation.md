@@ -18,8 +18,8 @@ transcrit, mais la génération répond « Clé API Anthropic non configurée »
 
 | Élément | Valeur |
 |---|---|
-| Dépôt | `ingrid-flogny/MedicalAssistant` (privé) |
-| Image | `ghcr.io/ingrid-flogny/medicalassistant` (privée) |
+| Dépôt | `ingrid-flogny/MedicalAssistant` (public) |
+| Image | `ghcr.io/ingrid-flogny/medicalassistant` (visibilité propre au paquet, privée par défaut) |
 | Accès Git | SSH (voir [Dépannage](08-depannage.md#git-ne-peut-pas-pousser-en-https)) |
 
 ### Red Hat OpenShift et Argo CD (pour le déploiement)
